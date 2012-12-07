@@ -1,10 +1,13 @@
 import sys
+import threading
 import time
 
 __author__ = 'Oleksandr Korobov'
 
 import socket
 import signal
+
+from collections import deque
 
 from korobool.chat.Threaded import ServingThreadWrapper
 
@@ -14,6 +17,8 @@ class ChatServer:
         self.host = ''
         self.__clients_pool = []
         self.closing = False
+        self.__notifications_queue = deque()
+        self.__notification_lock = threading.RLock()
 
     def __start_serve_connection(self, conn, addr):
         stw = ServingThreadWrapper(self, conn, addr)
@@ -35,6 +40,8 @@ class ChatServer:
         while not self.closing:
 
             self.socket.listen(5)
+
+            self.__process_notifications()
             try:
                 conn, addr = self.socket.accept()
                 self.__start_serve_connection(conn, addr)
@@ -48,6 +55,21 @@ class ChatServer:
 
     def notify(self, sender, message):
         print('Notification received:', message)
+        with self.__notification_lock:
+            self.__notifications_queue.append((sender, message))
+
+    def __process_notifications(self):
+        while len(self.__notifications_queue) > 0:
+            notification = self.__notifications_queue.pop()
+            self.__process_notification(notification)
+
+    def __process_notification(self, notification):
+        if not notification: return
+        sender = notification[0]
+        message = notification[1]
+
+        if message['cmd'] == 'CDM_FREE_RESOURCES':
+            sender.thread.join
 
         if message['cmd'] == 'CMD_BROADCAST':
             for client in self.__clients_pool:

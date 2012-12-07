@@ -24,13 +24,11 @@ class ServingThreadWrapper():
     def send(self, data):
         with self.__local_sync:
             self.commands_queue.appendleft(data)
-            #self.__process_server_messages_queue()
 
     # Thread safe first idle message
     def post(self, data):
         with self.__local_sync:
             self.commands_queue.append(data)
-            #self.__process_server_messages_queue()
 
     # Thread safe pop command operation
     def pop_command(self):
@@ -50,7 +48,9 @@ class ServingThreadWrapper():
         # Send closing message to client and then close the connection
         self.closing = True
         self.send({'cmd': 'CMD_CLOSE'})
-        self.thread.join()
+        #self.conn.close()
+        self.observer.notify(self, {'cmd': 'CDM_FREE_RESOURCES'})
+#        self.thread.join()
 
     # These methods ere executed in separate thread. Be aware of synchronization issues.
     # All updates globally accessible variables or calls to thread-unsafe methods/functions
