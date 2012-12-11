@@ -29,6 +29,7 @@ class ChatServer:
         
         while len(self.__clients_pool) > 0:
             self.__clients_pool[0].close()
+
         #self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
 
@@ -45,9 +46,10 @@ class ChatServer:
             try:
                 conn, addr = self.socket.accept()
                 self.__start_serve_connection(conn, addr)
-            except:
-                pass # Remove this awful exception swallowing
+            except socket.error as e:
+                pass #print(e)
         self.__close_all_clients()
+        self.socket.close()
 
     def stop_serve(self):
         self.closing = True
@@ -70,22 +72,24 @@ class ChatServer:
 
         if message['cmd'] == 'CDM_FREE_RESOURCES':
             sender.thread.join
+            return
 
         if message['cmd'] == 'CMD_BROADCAST':
             for client in self.__clients_pool:
                 if not client is None and not client.closing:
                     #print('Posting to '. client.name)
                     client.post(message)
-
-        if message['cmd'] == 'CMD_MESSAGE':
-            client.post({'cmd': 'CMD_SEVER_WARNING', 'msg': 'message sending is not implemented yet'})
+            return
+#
+#        if message['cmd'] == 'CMD_MESSAGE':
+#            client.post({'cmd': 'CMD_SEVER_WARNING', 'msg': 'message sending is not implemented yet'})
 
         if message['cmd'] == 'CMD_CLIENT_LEFT':
             print('Client left', message['id'])
             self.__clients_pool.remove(message['id'])
 
         if message['cmd'] == 'CMD_SCLOSESERVER':
-            self.closing = True
+            self.stop_serve()
 
 chat_sever = ChatServer(PORT = 50007)
 

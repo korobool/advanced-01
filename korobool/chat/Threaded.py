@@ -1,3 +1,5 @@
+import socket
+
 __author__ = 'Oleksandr Korobov'
 
 import threading
@@ -45,12 +47,11 @@ class ServingThreadWrapper():
             self.observer.notify(self, message)
 
     def close(self):
-        # Send closing message to client and then close the connection
         self.closing = True
-        self.send({'cmd': 'CMD_CLOSE'})
-        #self.conn.close()
-        self.observer.notify(self, {'cmd': 'CDM_FREE_RESOURCES'})
-#        self.thread.join()
+        try:
+            self.send({'cmd': 'CMD_CLOSE'})
+        finally:
+            pass #self.observer.notify(self, {'cmd': 'CDM_FREE_RESOURCES'})
 
     # These methods ere executed in separate thread. Be aware of synchronization issues.
     # All updates globally accessible variables or calls to thread-unsafe methods/functions
@@ -77,8 +78,11 @@ class ServingThreadWrapper():
         while not package is None:
             data = json.dumps(package)
             b = bytes(data, 'utf-8')
-            stw.conn.sendall(struct.pack('i', len(data)))
-            stw.conn.sendall(b)
+            try:
+                stw.conn.sendall(struct.pack('i', len(data)))
+                stw.conn.sendall(b)
+            except Exception:
+                pass
             print('sent data...' , b.decode('utf-8'))
             package = stw.pop_command()
 
@@ -89,8 +93,7 @@ class ServingThreadWrapper():
         try:
             header = stw.conn.recv(4)
             if not header: return
-        except:
-            # I know that it is bad idea to swallow exceptions, this is temporary trick
+        except socket.error as e:
             return
 
         size = int(struct.unpack('i', header)[0])
@@ -101,6 +104,7 @@ class ServingThreadWrapper():
         if not body:
             print('Protocol error. Closing client connection.')
             stw.closing = True
+            return
 
         # print('!DATA!\n', body)
 
